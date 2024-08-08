@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
-import io from "socket.io-client";
+import io from 'socket.io-client';
 import "./App.css";
 
 const SOCKET_SERVER_URL = "https://test-server-9sbj.onrender.com";
