@@ -2,12 +2,12 @@ import React, { useEffect, useState, useCallback } from "react";
 import io from 'socket.io-client';
 import "./App.css";
 
-const SOCKET_SERVER_URL = "https://test-server-9sbj.onrender.com";
+const SOCKET_SERVER_URL = "https://capital-server-9ebj.onrender.com";
 
 function App() {
   const [marketData, setMarketData] = useState({});
   const [error, setError] = useState(null);
-  const [symbols, setSymbols] = useState(["GOLD", "SILVER","PLATINUM"]); // Default symbols
+  const [symbols, setSymbols] = useState(["GOLD", "SILVER","PLATINUM","COPPER"]); // Default symbols
 
   const fetchMarketData = useCallback((symbols) => {
     const socket = io(SOCKET_SERVER_URL, {
