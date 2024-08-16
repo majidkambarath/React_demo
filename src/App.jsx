@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import io from 'socket.io-client';
 import "./App.css";
 
-const SOCKET_SERVER_URL = "https://capital-server-9ebj.onrender.com";
+const SOCKET_SERVER_URL = "https://aurify-capital-server.onrender.com";
 
 function App() {
   const [marketData, setMarketData] = useState({});
