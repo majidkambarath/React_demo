@@ -1,55 +1,76 @@
 import React, { useEffect, useState, useCallback } from "react";
-import io from 'socket.io-client';
+import io from "socket.io-client";
 import "./App.css";
 
-const SOCKET_SERVER_URL = "https://capital-server-9ebj.onrender.com";
-
+const SOCKET_SERVER_URL = "https://aurify-test-capital-server.onrender.com";
+const SECRET_KEY = "aurify@123";
+const value = ["GOLD", "SILVER","PLATINUM","COPPER"];
 function App() {
   const [marketData, setMarketData] = useState({});
   const [error, setError] = useState(null);
-  const [symbols, setSymbols] = useState(["GOLD", "SILVER","PLATINUM","COPPER"]); // Default symbols
+  const [symbols, setSymbols] = useState(value); // Default symbols
 
   const fetchMarketData = useCallback((symbols) => {
-    const socket = io(SOCKET_SERVER_URL, {
-      query: { secret: import.meta.env.VITE_ACCESS_KEY }, // Pass secret key as query parameter
-    });
+    let socket;
 
-    socket.on("connect", () => {
-      console.log("Connected to WebSocket server");
-      socket.emit("request-data", symbols);
-    });
+    const connectSocket = () => {
+      socket = io(SOCKET_SERVER_URL, {
+        query: { secret: "aurify@123" },
+        transports: ["websocket"],
+        withCredentials: true,
+      });
 
-    socket.on("disconnect", () => {
-      console.log("Disconnected from WebSocket server");
-    });
+      socket.on("connect", () => {
+        console.log("Connected to WebSocket server");
+        socket.emit("request-data", symbols);
+      });
+      
+      socket.on("disconnect", () => {
+        console.log("Disconnected from WebSocket server");
+        // Attempt to reconnect
+        setTimeout(connectSocket, 1000);
+      });
 
-    socket.on("market-data", (data) => {
-      if (data && data.symbol) {
-        setMarketData(prevData => ({
-          ...prevData,
-          [data.symbol]: {
-            ...prevData[data.symbol],
-            ...data,
-            // Compare current and previous bid to determine color
-            bidChanged: prevData[data.symbol] && data.bid !== prevData[data.symbol].bid 
-              ? (data.bid > prevData[data.symbol].bid ? 'up' : 'down') 
-              : null,
-          }
-        }));
-      } else {
-        console.warn("Received malformed market data:", data);
-      }
-    });
+      socket.on("market-data", (data) => {
+        console.log(data);
+        if (data && data.symbol) {
+          setMarketData((prevData) => ({
+            ...prevData,
+            [data.symbol]: {
+              ...prevData[data.symbol],
+              ...data,
+              bidChanged:
+                prevData[data.symbol] && data.bid !== prevData[data.symbol].bid
+                  ? data.bid > prevData[data.symbol].bid
+                    ? "up"
+                    : "down"
+                  : null,
+            },
+          }));
+        } else {
+          console.warn("Received malformed market data:", data);
+        }
+      });
 
-    socket.on("error", (error) => {
-      console.error("WebSocket error:", error);
-      setError("An error occurred while receiving data");
-    });
+      socket.on("error", (error) => {
+        console.error("WebSocket error:", error);
+        setError("An error occurred while receiving data");
+      });
 
-    return () => {
-      socket.disconnect();
+      socket.on("connect_error", (error) => {
+        console.error("WebSocket connection error:", error);
+        setError("Failed to connect to WebSocket server");
+      });
+
+      return () => {
+        if (socket) {
+          socket.disconnect();
+        }
+      };
     };
-  }, [symbols]);
+
+    connectSocket();
+  }, []);
 
   useEffect(() => {
     const cleanup = fetchMarketData(symbols);
@@ -58,9 +79,9 @@ function App() {
 
   // Utility function to determine background color based on bid change
   const getBidTextColor = (change) => {
-    if (change === 'up') {
+    if (change === "up") {
       return "bg-green-300 text-green-800";
-    } else if (change === 'down') {
+    } else if (change === "down") {
       return "bg-red-300 text-red-800";
     }
     return "bg-white";
@@ -68,7 +89,9 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col items-center p-4 md:p-6">
-      <h1 className="text-2xl md:text-3xl font-bold mb-4 md:mb-6 text-gray-800">Live Market Data</h1>
+      <h1 className="text-2xl md:text-3xl font-bold mb-4 md:mb-6 text-gray-800">
+        Live Market Data
+      </h1>
       {error && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4 md:mb-6">
           <strong className="font-bold">Error:</strong>
@@ -76,16 +99,32 @@ function App() {
         </div>
       )}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4 w-full max-w-screen-lg">
-        {Object.keys(marketData).map(symbol => (
+        {Object.keys(marketData).map((symbol) => (
           <div key={symbol} className="p-4 rounded-lg shadow-md bg-white">
-            <h2 className="text-lg md:text-xl font-semibold mb-2 text-gray-700">{symbol}</h2>
+            <h2 className="text-lg md:text-xl font-semibold mb-2 text-gray-700">
+              {symbol}
+            </h2>
             <div className="p-2">
-              <p className={`text-sm md:text-base p-2 rounded-lg ${getBidTextColor(marketData[symbol].bidChanged)}`}>
-                <span className="font-medium">Bid:</span> {marketData[symbol].bid || "N/A"}
+              <p
+                className={`text-sm md:text-base p-2 rounded-lg ${getBidTextColor(
+                  marketData[symbol].bidChanged
+                )}`}
+              >
+                <span className="font-medium">Bid:</span>{" "}
+                {marketData[symbol].bid || "N/A"}
               </p>
-              <p className="text-sm md:text-base"><span className="font-medium">High:</span> {marketData[symbol].high || "N/A"}</p>
-              <p className="text-sm md:text-base"><span className="font-medium">Low:</span> {marketData[symbol].low || "N/A"}</p>
-              <p className="text-sm md:text-base"><span className="font-medium">Status:</span> {marketData[symbol].marketStatus || "N/A"}</p>
+              <p className="text-sm md:text-base">
+                <span className="font-medium">High:</span>{" "}
+                {marketData[symbol].high || "N/A"}
+              </p>
+              <p className="text-sm md:text-base">
+                <span className="font-medium">Low:</span>{" "}
+                {marketData[symbol].low || "N/A"}
+              </p>
+              <p className="text-sm md:text-base">
+                <span className="font-medium">Status:</span>{" "}
+                {marketData[symbol].marketStatus || "N/A"}
+              </p>
             </div>
           </div>
         ))}
