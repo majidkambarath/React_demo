@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import io from "socket.io-client";
 import "./App.css";
 
-const SOCKET_SERVER_URL = "https://aurify-test-capital-server.onrender.com";
+const SOCKET_SERVER_URL = "https://capital-server-9ebj.onrender.com";
 const SECRET_KEY = "aurify@123";
 const value = ["GOLD", "SILVER","PLATINUM","COPPER"];
 function App() {
