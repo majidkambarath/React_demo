@@ -1,48 +1,45 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import io from 'socket.io-client';
+import React, { useEffect, useState, useCallback } from "react";
+import io from "socket.io-client";
+import "./App.css";
 
-const SOCKET_SERVER_URL = "https://test-capital-server.onrender.com";
+
+const SOCKET_SERVER_URL = "http://localhost:3030";
 const SECRET_KEY = "aurify@123";
-const DEFAULT_SYMBOLS = ["GOLD", "SILVER", "COPPER"];
-
+const value = ["GOLD","SILVER"];
 function App() {
   const [marketData, setMarketData] = useState({});
+  console.log(marketData)
   const [error, setError] = useState(null);
-  const [symbols, setSymbols] = useState(DEFAULT_SYMBOLS);
-  const socketRef = useRef(null);
-  const reconnectTimeoutRef = useRef(null);
+  const [symbols, setSymbols] = useState(value); // Default symbols
 
-  const connectSocket = useCallback(() => {
-    if (socketRef.current) {
-      socketRef.current.disconnect();
-    }
+  const fetchMarketData = useCallback((symbols) => {
+    let socket;
 
-    socketRef.current = io(SOCKET_SERVER_URL, {
-      query: { secret: SECRET_KEY },
-      transports: ["websocket"],
-      withCredentials: true,
-    });
+    const connectSocket = () => {
+      socket = io(SOCKET_SERVER_URL, {
+        query: { secret: "aurify@123" },
+        transports: ["websocket"],
+        withCredentials: true,
+      });
 
-    socketRef.current.on("connect", () => {
-      console.log("Connected to WebSocket server");
-      socketRef.current.emit("request-data", symbols);
-    });
+      socket.on("connect", () => {
+        console.log("Connected to WebSocket server");
+        socket.emit("request-data", symbols);
+      });
+      
+      socket.on("disconnect", () => {
+        console.log("Disconnected from WebSocket server");
+        // Attempt to reconnect
+        setTimeout(connectSocket, 1000);
+      });
 
-    socketRef.current.on("disconnect", () => {
-      console.log("Disconnected from WebSocket server");
-      // Attempt to reconnect
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-      }
-      reconnectTimeoutRef.current = setTimeout(connectSocket, 5000);
-    });
-
-    socketRef.current.on("market-data", (dataArray) => {
-      setMarketData((prevData) => {
-        const newData = { ...prevData };
-        dataArray.forEach((data) => {
-          if (data && data.symbol) {
-            newData[data.symbol] = {
+      socket.on("market-data", (data) => {
+        console.log(data);
+        if (data && data.symbol) {
+          setMarketData((prevData) => ({
+            ...prevData,
+            [data.symbol]: {
+              ...prevData[data.symbol],
               ...data,
               bidChanged:
                 prevData[data.symbol] && data.bid !== prevData[data.symbol].bid
@@ -50,50 +47,37 @@ function App() {
                     ? "up"
                     : "down"
                   : null,
-            };
-          } else {
-            console.warn("Received malformed market data:", data);
-          }
-        });
-        return newData;
+            },
+          }));
+        } else {
+          console.warn("Received malformed market data:", data);
+        }
       });
-    });
 
-    socketRef.current.on("market-data-unavailable", (unavailableSymbols) => {
-      console.warn("Market data unavailable for symbols:", unavailableSymbols);
-    });
+      socket.on("error", (error) => {
+        console.error("WebSocket error:", error);
+        setError("An error occurred while receiving data");
+      });
 
-    socketRef.current.on("market-data-error", (errorData) => {
-      console.error("Market data error:", errorData);
-      setError(errorData.message || "An error occurred while receiving data");
-    });
+      socket.on("connect_error", (error) => {
+        console.error("WebSocket connection error:", error);
+        setError("Failed to connect to WebSocket server");
+      });
 
-    socketRef.current.on("connect_error", (error) => {
-      console.error("WebSocket connection error:", error);
-      setError("Failed to connect to WebSocket server");
-    });
-  }, [symbols]);
+      return () => {
+        if (socket) {
+          socket.disconnect();
+        }
+      };
+    };
+
+    connectSocket();
+  }, []);
 
   useEffect(() => {
-    connectSocket();
-
-    return () => {
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-      }
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-      }
-    };
-  }, [connectSocket]);
-
-  const refreshData = useCallback(() => {
-    if (socketRef.current && socketRef.current.connected) {
-      socketRef.current.emit("request-data", symbols);
-    } else {
-      connectSocket();
-    }
-  }, [symbols, connectSocket]);
+    const cleanup = fetchMarketData(symbols);
+    return cleanup;
+  }, [symbols, fetchMarketData]);
 
   // Utility function to determine background color based on bid change
   const getBidTextColor = (change) => {
@@ -124,12 +108,16 @@ function App() {
             </h2>
             <div className="p-2">
               <p
-                className={`text-sm md:text-base p-2 -ml-2 rounded-lg ${getBidTextColor(
+                className={`text-sm md:text-base p-2 rounded-lg ${getBidTextColor(
                   marketData[symbol].bidChanged
                 )}`}
               >
                 <span className="font-medium">Bid:</span>{" "}
                 {marketData[symbol].bid || "N/A"}
+              </p>
+              <p className="text-sm md:text-base">
+                <span className="font-medium">Ask:</span>{" "}
+                {marketData[symbol].offer || "N/A"}
               </p>
               <p className="text-sm md:text-base">
                 <span className="font-medium">High:</span>{" "}
