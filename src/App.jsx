@@ -8,7 +8,6 @@ const SECRET_KEY = "aurify@123";
 const value = ["GOLD","SILVER"];
 function App() {
   const [marketData, setMarketData] = useState({});
-  console.log(marketData)
   const [error, setError] = useState(null);
   const [symbols, setSymbols] = useState(value); // Default symbols
 
